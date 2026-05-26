@@ -1,11 +1,25 @@
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Data
 data/processed/
+data/*.csv        # catches event_matrix.csv and event_traces.csv
+
+# Models
 models/
+
+# Python
 __pycache__/
 *.pyc
 *.parquet
 *.npy
 *.joblib
 *.pt
-.env
-node_modules/
 
+# Env
+.env
+
+# Node
+node_modules/
