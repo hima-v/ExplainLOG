@@ -1,0 +1,163 @@
+[
+  {
+    "block_id": "blk_-1608999687919862906",
+    "event_sequence": ["E5", "E22", "E7", "E22", "E26", "E11"],
+    "seq_length": 6,
+    "final_score": 0.184,
+    "cluster_id": 0,
+    "is_anomaly": true
+  },
+  {
+    "block_id": "blk_7503483334202473044",
+    "event_sequence": ["E5", "E26", "E22", "E26", "E5", "E21"],
+    "seq_length": 6,
+    "final_score": 0.171,
+    "cluster_id": -1,
+    "is_anomaly": true
+  },
+  {
+    "block_id": "blk_-3544583377289625738",
+    "event_sequence": ["E3", "E26", "E5", "E3", "E26"],
+    "seq_length": 5,
+    "final_score": 0.162,
+    "cluster_id": 14,
+    "is_anomaly": true
+  },
+  {
+    "block_id": "blk_-38865049064139660",
+    "event_sequence": ["E5", "E22", "E22", "E7", "E26"],
+    "seq_length": 5,
+    "final_score": 0.129,
+    "cluster_id": 0,
+    "is_anomaly": false
+  },
+  {
+    "block_id": "blk_9999111222333444",
+    "event_sequence": ["E5", "E22", "E7", "E11", "E26", "E22", "E5"],
+    "seq_length": 7,
+    "final_score": 0.156,
+    "cluster_id": 0,
+    "is_anomaly": true
+  },
+  {
+    "block_id": "blk_1111222233334444",
+    "event_sequence": ["E26", "E5", "E21", "E21", "E26", "E5"],
+    "seq_length": 6,
+    "final_score": 0.261,
+    "cluster_id": 6,
+    "is_anomaly": true
+  },
+  {
+    "block_id": "blk_5555666677778888",
+    "event_sequence": ["E26", "E5", "E21", "E26", "E5", "E21"],
+    "seq_length": 6,
+    "final_score": 0.247,
+    "cluster_id": 6,
+    "is_anomaly": true
+  },
+  {
+    "block_id": "blk_9999000011112222",
+    "event_sequence": ["E5", "E26", "E21", "E5", "E26"],
+    "seq_length": 5,
+    "final_score": 0.232,
+    "cluster_id": 6,
+    "is_anomaly": false
+  },
+  {
+    "block_id": "blk_2222333344445555",
+    "event_sequence": ["E26", "E5", "E11", "E11", "E26", "E5", "E22"],
+    "seq_length": 7,
+    "final_score": 0.238,
+    "cluster_id": 8,
+    "is_anomaly": true
+  },
+  {
+    "block_id": "blk_6666777788889999",
+    "event_sequence": ["E5", "E26", "E11", "E26", "E5"],
+    "seq_length": 5,
+    "final_score": 0.214,
+    "cluster_id": 8,
+    "is_anomaly": false
+  },
+  {
+    "block_id": "blk_0000111122223333",
+    "event_sequence": ["E26", "E5", "E11", "E22", "E26"],
+    "seq_length": 5,
+    "final_score": 0.223,
+    "cluster_id": 8,
+    "is_anomaly": true
+  },
+  {
+    "block_id": "blk_3333444455556666",
+    "event_sequence": ["E3", "E3", "E26", "E5", "E3", "E26"],
+    "seq_length": 6,
+    "final_score": 0.229,
+    "cluster_id": 14,
+    "is_anomaly": true
+  },
+  {
+    "block_id": "blk_7777888899990000",
+    "event_sequence": ["E26", "E5", "E3", "E26", "E5"],
+    "seq_length": 5,
+    "final_score": 0.208,
+    "cluster_id": 14,
+    "is_anomaly": false
+  },
+  {
+    "block_id": "blk_1111333355557777",
+    "event_sequence": ["E3", "E26", "E5", "E26", "E3", "E5"],
+    "seq_length": 6,
+    "final_score": 0.241,
+    "cluster_id": 14,
+    "is_anomaly": true
+  },
+  {
+    "block_id": "blk_4444555566667777",
+    "event_sequence": ["E4", "E5", "E22", "E4", "E5"],
+    "seq_length": 5,
+    "final_score": 0.121,
+    "cluster_id": 5,
+    "is_anomaly": false
+  },
+  {
+    "block_id": "blk_8888999900001111",
+    "event_sequence": ["E4", "E4", "E5", "E22", "E5", "E22"],
+    "seq_length": 6,
+    "final_score": 0.138,
+    "cluster_id": 5,
+    "is_anomaly": true
+  },
+  {
+    "block_id": "blk_2222444466668888",
+    "event_sequence": ["E5", "E22", "E4", "E5", "E22"],
+    "seq_length": 5,
+    "final_score": 0.116,
+    "cluster_id": 5,
+    "is_anomaly": false
+  },
+  {
+    "block_id": "blk_9999888877776666",
+    "event_sequence": ["E5", "E22", "E26", "E5", "E22"],
+    "seq_length": 5,
+    "final_score": 0.151,
+    "cluster_id": 3,
+    "is_anomaly": true
+  },
+  {
+    "block_id": "blk_5555444433332222",
+    "event_sequence": ["E5", "E26", "E22", "E5", "E26"],
+    "seq_length": 5,
+    "final_score": 0.140,
+    "cluster_id": 3,
+    "is_anomaly": false
+  },
+  {
+    "block_id": "blk_1111000099998888",
+    "event_sequence": ["E5", "E26", "E21", "E26", "E5", "E21"],
+    "seq_length": 6,
+    "final_score": 0.173,
+    "cluster_id": 7,
+    "is_anomaly": true
+  }
+]
+
