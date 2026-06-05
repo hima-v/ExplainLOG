@@ -3,8 +3,7 @@ import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-quer
 import { Layout } from './components/Layout'
 import { TimelineView } from './views/TimelineView'
 import { ScatterView } from './views/ScatterView'
-import { ClusterTable } from './views/ClusterTable'
-import { ExplainPanel } from './views/ExplainPanel'
+import { DetailPane } from './views/DetailPane'
 import {
   fetchClusters,
   fetchEmbeddings,
@@ -37,8 +36,7 @@ function AppInner() {
           isLoading={embeddingsQ.isLoading || clustersQ.isLoading}
         />
       }
-      table={<ClusterTable clusters={clusters} isLoading={clustersQ.isLoading} />}
-      explain={<ExplainPanel clusters={clusters} isLoading={clustersQ.isLoading} />}
+      detail={<DetailPane clusters={clusters} isLoading={clustersQ.isLoading} />}
     />
   )
 }

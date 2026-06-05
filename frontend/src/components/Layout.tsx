@@ -7,27 +7,28 @@ type LayoutProps = {
   sessionCount: number
   timeline: ReactNode
   scatter: ReactNode
-  table: ReactNode
-  explain: ReactNode
+  detail: ReactNode
 }
 
 export function Layout(props: LayoutProps) {
-  // CSS grid is the least cursed way to do "dashboard tiles" —
-  // flexbox can do it, but then you're negotiating with min-heights for hours
   return (
-    <div className="h-screen w-screen overflow-hidden bg-[#f8fafc] text-[#0f172a]">
-      <div className="grid h-full grid-rows-[60px_130px_1fr]">
+    <div className="h-screen w-screen bg-slate-50 overflow-hidden flex flex-col p-4 text-[#0f172a]">
+      <div className="flex-shrink-0">
         <Header flaggedCount={props.flaggedCount} sessionCount={props.sessionCount} />
+      </div>
 
-        <div className="p-3">{props.timeline}</div>
-
-        <div className="grid min-h-0 grid-cols-[65%_35%]">
-          <div className="min-h-0 p-3">{props.scatter}</div>
-
-          <div className="grid min-h-0 grid-rows-[55%_45%] p-3 gap-3">
-            <div className="min-h-0">{props.table}</div>
-            <div className="min-h-0">{props.explain}</div>
+      <div className="flex-1 overflow-hidden flex gap-4 min-h-0 pt-4">
+        <div className="flex flex-col h-full w-[40%] bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden min-w-0">
+          <div className="flex-shrink-0 h-[180px] p-3 border-b border-slate-100 overflow-hidden">
+            {props.timeline}
           </div>
+          <div className="flex-1 min-h-0 p-3 overflow-hidden">
+            {props.scatter}
+          </div>
+        </div>
+
+        <div className="flex flex-col h-full flex-1 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden p-0 min-w-0">
+          {props.detail}
         </div>
       </div>
     </div>

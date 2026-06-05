@@ -33,7 +33,7 @@ export function TimelineView(props: TimelineViewProps) {
   )
 
   const [width, setWidth] = useState(900)
-  const height = 130
+  const height = 160
 
   useEffect(() => {
     if (!wrapRef.current) return
@@ -166,17 +166,17 @@ export function TimelineView(props: TimelineViewProps) {
 
   return (
     <div
-      className="h-full w-full rounded-lg border border-slate-200 bg-white shadow-sm"
+      className="h-full w-full rounded-lg border border-slate-300 bg-white shadow-sm"
       ref={wrapRef}
     >
       <div className="flex items-center justify-between px-3 py-2 border-b border-slate-200">
-        <div className="text-slate-500 text-xs uppercase font-medium tracking-wider">
+        <div className="text-xs font-bold uppercase tracking-wider text-slate-800">
           Timeline
         </div>
         <div className="flex items-center gap-3">
-          <div className="text-xs text-slate-500">Nov 9-11 2008 · 38h window</div>
+          <div className="text-sm font-medium text-slate-500">Nov 9-11 2008 · 38h window</div>
           <button
-            className="text-xs text-slate-500 hover:text-slate-900"
+            className="text-sm font-medium text-slate-500 hover:text-slate-900"
             onClick={() => setTimeRange(null)}
           >
             clear brush
@@ -188,7 +188,7 @@ export function TimelineView(props: TimelineViewProps) {
         {props.isLoading ? (
           <div className="text-slate-500 text-sm">Loading...</div>
         ) : (
-          <svg ref={svgRef} className="h-[96px] w-full" />
+          <svg ref={svgRef} className="h-[120px] w-full" />
         )}
       </div>
     </div>

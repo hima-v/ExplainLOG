@@ -7,21 +7,28 @@ export function Header(props: HeaderProps) {
   const windowLabel = 'Nov 9-11 2008 · 38h window'
 
   return (
-    <header className="h-[60px] px-4 flex items-center justify-between bg-white border-b border-slate-200 shadow-sm">
-      <div className="flex items-baseline gap-3">
-        <div className="text-slate-900 font-semibold tracking-wide">ExplainLOG</div>
-        <div className="text-slate-500 text-sm">HDFS Anomaly Triage</div>
-      </div>
+    <header className="h-[52px] bg-white border-b border-slate-200">
+      <div className="h-full px-3 grid grid-cols-[1fr_auto_1fr] items-center">
+        <div className="min-w-0">
+          <div className="font-semibold tracking-wide text-slate-900 whitespace-nowrap">
+            ExplainLOG <span className="text-slate-400 font-medium">—</span>{' '}
+            <span className="font-semibold text-slate-900">HDFS Anomaly Triage</span>
+          </div>
+        </div>
 
-      <div className="flex items-center gap-2">
-        <div className="text-slate-500 text-sm">{windowLabel}</div>
-        <div className="rounded-full border border-red-200 bg-red-50 px-3 py-1 text-xs text-red-600">
-          {props.flaggedCount.toLocaleString()} anomalies
+        <div className="flex items-center gap-2 text-xs whitespace-nowrap">
+          <span className="tabular-nums text-red-600">
+            {props.flaggedCount.toLocaleString()} anomalies
+          </span>
+          <span className="text-slate-300">|</span>
+          <span className="tabular-nums text-green-600">
+            {props.sessionCount.toLocaleString()} sessions
+          </span>
+          <span className="text-slate-300">|</span>
+          <span className="text-slate-500">{windowLabel}</span>
         </div>
-        <div className="rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs text-green-600">
-          {props.sessionCount.toLocaleString()} sessions
-        </div>
-        <div className="text-slate-500 text-sm">LSTM 90% · IForest 10%</div>
+
+        <div />
       </div>
     </header>
   )

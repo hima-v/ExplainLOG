@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
+import type { OrthographicViewState } from '@deck.gl/core'
 import { OrthographicView } from '@deck.gl/core'
 import { ScatterplotLayer } from '@deck.gl/layers'
 import DeckGL from '@deck.gl/react'
@@ -10,24 +11,25 @@ import { useSelectionStore } from '../store/selection'
 type Pt = EmbeddingPoint
 
 function colorForCluster(clusterId: number): [number, number, number, number] {
-  // fixed palette: distinct hues that survive dark mode + are mostly colorblind-safe
   switch (clusterId) {
     case -1:
       return [156, 163, 175, 100]
     case 0:
-      return [239, 68, 68, 220]
-    case 6:
-      return [249, 115, 22, 220]
-    case 8:
-      return [234, 179, 8, 220]
-    case 14:
-      return [34, 197, 94, 220]
-    case 5:
-      return [59, 130, 246, 220]
+      return [31, 119, 180, 220] // #1f77b4
+    case 1:
+      return [214, 39, 40, 220] // #d62728
+    case 2:
+      return [44, 160, 44, 220] // #2ca02c
     case 3:
-      return [168, 85, 247, 220]
+      return [255, 127, 14, 220] // #ff7f0e
+    case 4:
+      return [148, 103, 189, 220] // #9467bd
+    case 5:
+      return [140, 86, 75, 220] // #8c564b
+    case 6:
+      return [227, 119, 194, 220] // #e377c2
     case 7:
-      return [236, 72, 153, 220]
+      return [127, 127, 127, 220] // #7f7f7f
     default:
       return [148, 163, 184, 140]
   }
@@ -48,7 +50,6 @@ export function ScatterView(props: ScatterViewProps) {
   const scoreThreshold = useSelectionStore((s) => s.scoreThreshold)
 
   const points = (props.points ?? []) as Pt[]
-  const [hovered, setHovered] = useState<Pt | null>(null)
 
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [dims, setDims] = useState({ width: 800, height: 500 })
@@ -94,11 +95,13 @@ export function ScatterView(props: ScatterViewProps) {
     const centerY = (bounds.minY + bounds.maxY) / 2
     const rangeX = Math.max(1e-6, bounds.maxX - bounds.minX)
     const rangeY = Math.max(1e-6, bounds.maxY - bounds.minY)
-    const range = Math.max(rangeX, rangeY)
-    const zoom = Math.log2(Math.min(dims.width, dims.height) / range) - 1
+    const zoom =
+      Math.log2(Math.min(dims.width, dims.height) / Math.max(rangeX, rangeY)) - 0.3
     return {
-      target: [centerX, centerY, 0] as [number, number, number],
-      zoom,
+      ortho: {
+        target: [centerX, centerY, 0] as [number, number, number],
+        zoom,
+      } satisfies OrthographicViewState,
     }
   }, [bounds.maxX, bounds.maxY, bounds.minX, bounds.minY, dims.height, dims.width])
 
@@ -108,16 +111,16 @@ export function ScatterView(props: ScatterViewProps) {
   )
 
   const handleClick = useCallback(
-    ({ object }: { object: any | null }) => {
+    (info: { object?: any | null }) => {
+      const object = info.object ?? null
       if (object) setSelectedCluster(object.cluster_id)
     },
     [setSelectedCluster]
   )
 
   const handleHover = useCallback(
-    ({ object }: { object: any | null }) => {
-      const p = (object as any) ?? null
-      setHovered(p)
+    (info: { object?: any | null }) => {
+      const p = (info.object as any) ?? null
       setHoveredCluster(p?.cluster_id ?? null)
     },
     [setHoveredCluster]
@@ -133,8 +136,10 @@ export function ScatterView(props: ScatterViewProps) {
         id: 'umap-points',
         data: withHour,
         getPosition: (d) => [d.umap_x, d.umap_y],
-        getRadius: (d) => (d.cluster_id === hoveredCluster ? 8 : 5),
+        getRadius: (d) => (d.cluster_id === hoveredCluster ? 18 : 12),
         radiusUnits: 'pixels',
+        radiusMinPixels: 8,
+        radiusMaxPixels: 20,
         getFillColor: (d) => {
           const base = colorForCluster(d.cluster_id)
           const inRange =
@@ -158,9 +163,9 @@ export function ScatterView(props: ScatterViewProps) {
   const legendItems = (props.clusters ?? []).filter((c) => c.cluster_id !== -1)
 
   return (
-    <div className="h-full w-full rounded-lg border border-slate-200 bg-white shadow-sm">
-      <div className="flex items-center justify-between px-3 py-2 border-b border-slate-200">
-        <div className="text-slate-500 text-xs uppercase tracking-wider">
+    <div className="h-full w-full overflow-hidden flex flex-col">
+      <div className="flex-shrink-0 flex items-center justify-between px-0 py-0 mb-2">
+        <div className="text-xs font-bold uppercase tracking-wider text-slate-800">
           UMAP scatter
         </div>
         <div className="text-xs text-slate-500">
@@ -169,63 +174,102 @@ export function ScatterView(props: ScatterViewProps) {
         </div>
       </div>
 
-      <div
-        ref={containerRef}
-        className="relative w-full"
-        style={{ height: 'calc(100vh - 280px)', minHeight: '400px' }}
-      >
-        {props.isLoading ? (
-          <div className="p-3 text-slate-500 text-sm">Loading...</div>
-        ) : (
-          <DeckGL
-            views={views}
-            initialViewState={viewState}
-            layers={layers}
-            width={dims.width}
-            height={dims.height}
-            key={`${dims.width}x${dims.height}:${bounds.minX}:${bounds.minY}:${bounds.maxX}:${bounds.maxY}`}
-            style={{ background: '#ffffff' }}
-            getTooltip={({ object }) => {
-              const p = object as any | null
-              if (!p) return null
-              return {
-                text: `block_id=${p.block_id}\ncluster=${p.cluster_id}\nscore=${p.final_score.toFixed(3)}\nhour=${p._hour}`,
-              }
-            }}
-          />
-        )}
+      <div className="flex items-center gap-4 px-3 pb-2 text-xs text-slate-500">
+        <span>Detector blend:</span>
+        <input type="range" min={0} max={1} step={0.1} defaultValue={0.9} className="w-24 h-1" />
+        <span>LSTM 90%</span>
+        <span className="ml-4">Threshold:</span>
+        <input type="range" min={0} max={1} step={0.05} defaultValue={0.1} className="w-24 h-1" />
+        <span>0.10</span>
+      </div>
 
-        <div className="absolute bottom-3 left-3 w-64 rounded-lg border border-slate-200 bg-white/95 p-3 text-xs shadow">
-          <div className="text-slate-500 font-medium uppercase tracking-wider text-[11px]">
-            Clusters
+      <div className="flex-1 flex flex-row w-full overflow-hidden p-4 gap-4 min-h-0">
+        <div className="w-56 flex-shrink-0 flex flex-col bg-white border border-slate-300 rounded-lg overflow-hidden shadow-sm min-h-0">
+          <div className="flex-shrink-0 px-3 py-2 border-b border-slate-300">
+            <div className="text-xs font-bold uppercase tracking-wider text-slate-800">
+              Clusters
+            </div>
           </div>
-          <div className="mt-2 space-y-2">
-            {legendItems.map((c) => {
-              const rgba = colorForCluster(c.cluster_id)
-              return (
-                <div key={c.cluster_id} className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <div
-                      className="h-3 w-3 rounded-full border border-slate-200"
-                      style={{ backgroundColor: `rgba(${rgba[0]},${rgba[1]},${rgba[2]},${rgba[3] / 255})` }}
-                    />
-                    <div className="text-slate-500">cluster {c.cluster_id}</div>
+          <div className="flex-1 overflow-y-auto p-2 min-h-0">
+            <div className="space-y-2">
+              {legendItems.map((c) => {
+                const rgba = colorForCluster(c.cluster_id)
+                return (
+                  <div key={c.cluster_id} className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div
+                        className="h-3 w-3 rounded-full border border-slate-300 flex-shrink-0"
+                        style={{
+                          backgroundColor: `rgba(${rgba[0]},${rgba[1]},${rgba[2]},${rgba[3] / 255})`,
+                        }}
+                      />
+                      <div className="text-sm font-medium text-slate-500 truncate">
+                        cluster {c.cluster_id}
+                      </div>
+                    </div>
+                    <div className="text-sm font-medium text-slate-500 tabular-nums">
+                      {c.size}
+                    </div>
                   </div>
-                  <div className="text-slate-500 tabular-nums">{c.size}</div>
-                </div>
-              )
-            })}
+                )
+              })}
+            </div>
           </div>
         </div>
 
-        {hovered ? (
-          <div className="absolute bottom-3 right-3 rounded-lg border border-slate-200 bg-white/95 px-3 py-2 text-xs shadow">
-            <div className="text-slate-900 font-medium">{hovered.block_id}</div>
-            <div className="text-slate-500">
-              cluster {hovered.cluster_id} • score {hovered.final_score.toFixed(3)}
-            </div>
+        <div className="flex-1 relative overflow-hidden rounded-lg border border-slate-200 bg-slate-50/50 min-h-0">
+          <div
+            ref={containerRef}
+            className="absolute inset-0 overflow-hidden"
+          >
+            {props.isLoading ? (
+              <div className="p-3 text-slate-500 text-sm">Loading...</div>
+            ) : (
+              <DeckGL
+                views={views}
+                initialViewState={viewState}
+                layers={layers}
+                width={dims.width}
+                height={dims.height}
+                key={`${dims.width}x${dims.height}:${bounds.minX}:${bounds.minY}:${bounds.maxX}:${bounds.maxY}`}
+                style={{ background: '#ffffff' }}
+                getTooltip={({ object }) => {
+                  const p = object as any | null
+                  if (!p) return null
+              const score =
+                typeof p.final_score === 'number' ? p.final_score.toFixed(3) : String(p.final_score ?? '—')
+              const cluster = String(p.cluster_id ?? '—')
+              const block = String(p.block_id ?? '—')
+
+              return {
+                html: `
+                  <div style="font-family: Inter, sans-serif; font-size: 12px;">
+                    <div style="font-weight: 600; color: #0f172a; margin-bottom: 4px;">
+                      Block: ${block}
+                    </div>
+                    <div style="color: #64748b;">
+                      Cluster: <span style="font-weight: 500; color: #0f172a;">${cluster}</span>
+                    </div>
+                    <div style="color: #64748b;">
+                      Score: <span style="font-weight: 500; color: #0f172a;">${score}</span>
+                    </div>
+                  </div>
+                `,
+                style: {
+                  background: '#ffffff',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '6px',
+                  boxShadow: 'rgba(0, 0, 0, 0.1) 0px 4px 6px',
+                  padding: '8px 12px',
+                  color: '#0f172a',
+                },
+              }
+                }}
+              />
+            )}
           </div>
-        ) : null}
+
+        </div>
       </div>
     </div>
   )
