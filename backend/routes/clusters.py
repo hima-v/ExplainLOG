@@ -7,10 +7,11 @@ import json
 from fastapi import APIRouter, HTTPException, Path
 
 import config
-from data.loader import get_db
+from data.loader import get_db, get_reverse_cluster_map
 from schemas import ClusterSummary, SessionRow
 
 router = APIRouter()
+VALID_MERGED_CLUSTER_IDS = {-1, 0, 3, 5, 6, 7, 8, 14}
 
 
 @router.get("/api/clusters", response_model=list[ClusterSummary])
@@ -23,22 +24,25 @@ async def get_clusters():
 
 @router.get("/api/clusters/{cluster_id}/sessions", response_model=list[SessionRow])
 async def get_cluster_sessions(cluster_id: int = Path(ge=-1)):
+    if cluster_id not in VALID_MERGED_CLUSTER_IDS:
+        raise HTTPException(status_code=404, detail="cluster not found")
+
     con = get_db()
+    rev_map = get_reverse_cluster_map()
+    geo_ids = rev_map.get(cluster_id, [cluster_id])
+    placeholders = ",".join("?" * len(geo_ids))
     rows = con.execute(
-        """
+        f"""
         SELECT s.block_id, s.event_sequence, s.seq_length,
                sc.final_score, s.is_anomaly
         FROM clusters c
         JOIN sessions s ON s.block_id = c.block_id
         JOIN scored   sc ON sc.block_id = c.block_id
-        WHERE c.cluster_id = ?
+        WHERE c.cluster_id IN ({placeholders})
         ORDER BY sc.final_score DESC
         """,
-        [cluster_id],
+        geo_ids,
     ).fetchall()
-
-    if not rows:
-        raise HTTPException(status_code=404, detail=f"no sessions for cluster {cluster_id}")
 
     return [
         SessionRow(

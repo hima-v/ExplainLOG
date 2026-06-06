@@ -1,7 +1,10 @@
 """DuckDB connection singleton. The trick here: DuckDB scans parquet straight off
 disk, so we get SQL over 575k rows without ever pulling them into pandas/Polars."""
-import duckdb
+import json
 from functools import lru_cache
+from pathlib import Path
+
+import duckdb
 
 import config
 
@@ -23,3 +26,21 @@ def get_db() -> duckdb.DuckDBPyConnection:
         safe = str(path).replace("'", "''")
         con.execute(f"CREATE VIEW {name} AS SELECT * FROM read_parquet('{safe}')")
     return con
+
+
+@lru_cache(maxsize=1)
+def get_cluster_map() -> dict[int, int]:
+    # geometric cluster_id -> merged cluster_id
+    # loaded once, used by embeddings and sessions routes
+    processed = getattr(config, "PROCESSED", Path(config.CLUSTERS_PARQUET).parent)
+    raw = json.loads((processed / "cluster_map.json").read_text())
+    return {int(k): int(v) for k, v in raw.items()}
+
+
+@lru_cache(maxsize=1)
+def get_reverse_cluster_map() -> dict[int, list[int]]:
+    fwd = get_cluster_map()
+    rev: dict[int, list[int]] = {}
+    for geo, merged in fwd.items():
+        rev.setdefault(merged, []).append(geo)
+    return rev

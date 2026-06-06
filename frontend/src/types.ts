@@ -8,6 +8,7 @@ export type Cluster = {
   cluster_id: number
   size: number
   avg_score: number
+  anomaly_rate: number
   top_5_events: ClusterEvent[]
   sample_blocks: string[]
 }
@@ -25,7 +26,6 @@ export type Session = {
   event_sequence: string[]
   seq_length: number
   final_score: number
-  cluster_id: number
   is_anomaly: boolean
 }
 
@@ -37,10 +37,10 @@ export type TimelineBin = {
 }
 
 export type ClusterExplanation = {
-  cluster_id: number
-  title: string
   summary: string
-  hypotheses: string[]
-  next_checks: string[]
+  pattern: string
+  likely_cause: string
+  severity: string
+  next_steps: string[]
 }
 

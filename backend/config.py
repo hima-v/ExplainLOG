@@ -5,20 +5,16 @@ import os
 
 # backend/ -> explainlog/  so data/ sits next to backend/, not inside it
 BASE_DIR = Path(__file__).resolve().parent
-PROJECT_ROOT = BASE_DIR.parent
-
-# data lives under .venv in this workspace (precomputed pipeline outputs)
-DATA_DIR = PROJECT_ROOT / ".venv" / "data"
+DATA_DIR = BASE_DIR.parent / "data"
 PROCESSED = DATA_DIR / "processed"
+LLM_CACHE_DIR = DATA_DIR / "llm_cache"
+FEEDBACK_FILE = DATA_DIR / "feedback.jsonl"
 
 SESSIONS_PARQUET = PROCESSED / "sessions.parquet"
 SCORED_PARQUET = PROCESSED / "scored.parquet"
 EMBEDDINGS_PARQUET = PROCESSED / "embeddings.parquet"
 CLUSTERS_PARQUET = PROCESSED / "clusters.parquet"
 CLUSTER_SUMMARY_JSON = PROCESSED / "cluster_summary.json"
-
-FEEDBACK_FILE = DATA_DIR / "feedback.jsonl"
-LLM_CACHE_DIR = DATA_DIR / "llm_cache"
 
 # one env var flips the whole LLM backend; default to local Ollama (zero cost)
 LLM_BACKEND = os.getenv("LLM_BACKEND", "ollama")

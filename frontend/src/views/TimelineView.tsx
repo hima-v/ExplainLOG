@@ -5,8 +5,6 @@ import * as d3 from 'd3'
 import type { TimelineBin } from '../types'
 import { useSelectionStore } from '../store/selection'
 
-type StackedBin = TimelineBin & { normal_count: number }
-
 function clamp(n: number, lo: number, hi: number) {
   return Math.max(lo, Math.min(hi, n))
 }
@@ -23,14 +21,7 @@ export function TimelineView(props: TimelineViewProps) {
   const timeRange = useSelectionStore((s) => s.timeRange)
   const setTimeRange = useSelectionStore((s) => s.setTimeRange)
 
-  const bins = useMemo<StackedBin[]>(
-    () =>
-      (props.bins ?? []).map((b) => ({
-        ...b,
-        normal_count: Math.max(0, b.total_count - b.anomaly_count),
-      })),
-    [props.bins]
-  )
+  const bins = useMemo(() => props.bins ?? [], [props.bins])
 
   const [width, setWidth] = useState(900)
   const height = 160
@@ -39,7 +30,9 @@ export function TimelineView(props: TimelineViewProps) {
     if (!wrapRef.current) return
     const ro = new ResizeObserver((entries) => {
       const next = Math.floor(entries[0]!.contentRect.width)
-      if (Number.isFinite(next) && next > 0) setWidth(next)
+      if (Number.isFinite(next) && next > 0) {
+        setWidth((prev) => (prev === next ? prev : next))
+      }
     })
     ro.observe(wrapRef.current)
     return () => ro.disconnect()
@@ -61,9 +54,7 @@ export function TimelineView(props: TimelineViewProps) {
       .range([margin.left, w - margin.right])
       .paddingInner(0.12)
 
-    const yMax =
-      d3.max(bins, (b) => b.total_count) ??
-      1
+    const yMax = (d3.max(bins, (b) => b.anomaly_count) ?? 1) * 1.2
     const y = d3
       .scaleLinear()
       .domain([0, yMax])
@@ -77,31 +68,15 @@ export function TimelineView(props: TimelineViewProps) {
 
     const g = root.append('g')
 
-    const stack = d3
-      .stack<StackedBin>()
-      .keys(['normal_count', 'anomaly_count'])
-      .order(d3.stackOrderNone)
-      .offset(d3.stackOffsetNone)
-
-    const series = stack(bins)
-    const color = new Map<string, string>([
-      ['normal_count', '#3b82f6'], // blue
-      ['anomaly_count', '#ef4444'], // red
-    ])
-
-    // stacked bars: normals first (blue), anomalies on top (red)
     g.append('g')
-      .selectAll('g')
-      .data(series)
-      .join('g')
-      .attr('fill', (s) => color.get(s.key) ?? '#64748b')
       .selectAll('rect')
-      .data((s) => s.map((d) => ({ ...d, key: s.key })))
+      .data(bins)
       .join('rect')
-      .attr('x', (d) => x(d.data.hour) ?? 0)
+      .attr('x', (d) => x(d.hour) ?? 0)
       .attr('width', x.bandwidth())
-      .attr('y', (d) => y(d[1]))
-      .attr('height', (d) => Math.max(0, y(d[0]) - y(d[1])))
+      .attr('y', (d) => y(d.anomaly_count))
+      .attr('height', (d) => Math.max(0, y(0) - y(d.anomaly_count)))
+      .attr('fill', '#ef4444')
       .attr('opacity', 0.9)
 
     const xAxis = d3.axisBottom(x).tickValues([0, 6, 12, 18, 24, 30, 37])
@@ -130,6 +105,8 @@ export function TimelineView(props: TimelineViewProps) {
         [w - margin.right, h - margin.bottom],
       ])
       .on('end', (event) => {
+        if (!event.sourceEvent) return
+
         if (!event.selection) {
           setTimeRange(null)
           return
@@ -143,6 +120,7 @@ export function TimelineView(props: TimelineViewProps) {
         const a = hours[Math.min(start, end)]
         const b = hours[Math.max(start, end)]
         if (a == null || b == null) return
+        if (a === b) return
         setTimeRange([a, b])
       })
 

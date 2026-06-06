@@ -12,6 +12,7 @@ import config
 from llm import cache, client, prompts
 
 router = APIRouter()
+VALID_MERGED_CLUSTER_IDS = {-1, 0, 3, 5, 6, 7, 8, 14}
 
 
 def _load_summary(cluster_id: int) -> dict:
@@ -29,6 +30,9 @@ def _sse(data: str) -> str:
 
 @router.get("/api/clusters/{cluster_id}/explain")
 async def explain(cluster_id: int = Path(ge=-1)):
+    if cluster_id not in VALID_MERGED_CLUSTER_IDS:
+        raise HTTPException(status_code=404, detail="cluster not found")
+
     summary = _load_summary(cluster_id)
     key = cache.cache_key(summary)
 

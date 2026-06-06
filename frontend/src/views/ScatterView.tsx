@@ -13,7 +13,7 @@ type Pt = EmbeddingPoint
 function colorForCluster(clusterId: number): [number, number, number, number] {
   switch (clusterId) {
     case -1:
-      return [156, 163, 175, 100]
+      return [156, 163, 175, 40]
     case 0:
       return [31, 119, 180, 220] // #1f77b4
     case 1:
@@ -31,7 +31,7 @@ function colorForCluster(clusterId: number): [number, number, number, number] {
     case 7:
       return [127, 127, 127, 220] // #7f7f7f
     default:
-      return [148, 163, 184, 140]
+      return [156, 163, 175, 180]
   }
 }
 
@@ -58,7 +58,11 @@ export function ScatterView(props: ScatterViewProps) {
     if (!containerRef.current) return
     const ro = new ResizeObserver((entries) => {
       const { width, height } = entries[0]!.contentRect
-      if (width > 0 && height > 0) setDims({ width, height })
+      if (width > 0 && height > 0) {
+        setDims((prev) =>
+          prev.width === width && prev.height === height ? prev : { width, height }
+        )
+      }
     })
     ro.observe(containerRef.current)
     return () => ro.disconnect()
@@ -76,34 +80,29 @@ export function ScatterView(props: ScatterViewProps) {
   }, [filtered])
 
   const bounds = useMemo(() => {
-    let minX = Infinity,
-      maxX = -Infinity,
-      minY = Infinity,
-      maxY = -Infinity
-    for (const p of withHour) {
-      minX = Math.min(minX, p.umap_x)
-      maxX = Math.max(maxX, p.umap_x)
-      minY = Math.min(minY, p.umap_y)
-      maxY = Math.max(maxY, p.umap_y)
-    }
+    const xs = points.map((p) => p.umap_x)
+    const ys = points.map((p) => p.umap_y)
+    const minX = Math.min(...xs)
+    const maxX = Math.max(...xs)
+    const minY = Math.min(...ys)
+    const maxY = Math.max(...ys)
     if (!Number.isFinite(minX)) return { minX: -5, maxX: 5, minY: -5, maxY: 5 }
     return { minX, maxX, minY, maxY }
-  }, [withHour])
+  }, [points])
 
   const viewState = useMemo(() => {
     const centerX = (bounds.minX + bounds.maxX) / 2
     const centerY = (bounds.minY + bounds.maxY) / 2
     const rangeX = Math.max(1e-6, bounds.maxX - bounds.minX)
     const rangeY = Math.max(1e-6, bounds.maxY - bounds.minY)
-    const zoom =
-      Math.log2(Math.min(dims.width, dims.height) / Math.max(rangeX, rangeY)) - 0.3
+    const zoom = Math.log2(500 / Math.max(rangeX, rangeY)) - 0.5
     return {
       ortho: {
         target: [centerX, centerY, 0] as [number, number, number],
         zoom,
       } satisfies OrthographicViewState,
     }
-  }, [bounds.maxX, bounds.maxY, bounds.minX, bounds.minY, dims.height, dims.width])
+  }, [bounds.maxX, bounds.maxY, bounds.minX, bounds.minY])
 
   const views = useMemo(
     () => [new OrthographicView({ id: 'ortho', controller: true })],
@@ -136,11 +135,12 @@ export function ScatterView(props: ScatterViewProps) {
         id: 'umap-points',
         data: withHour,
         getPosition: (d) => [d.umap_x, d.umap_y],
-        getRadius: (d) => (d.cluster_id === hoveredCluster ? 18 : 12),
+        getRadius: (d) => (d.cluster_id === hoveredCluster ? 15 : 8),
         radiusUnits: 'pixels',
-        radiusMinPixels: 8,
+        radiusMinPixels: 4,
         radiusMaxPixels: 20,
         getFillColor: (d) => {
+          if (d.cluster_id === -1) return [156, 163, 175, 40]
           const base = colorForCluster(d.cluster_id)
           const inRange =
             timeRange == null ||
