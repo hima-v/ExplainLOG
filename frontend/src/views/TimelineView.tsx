@@ -22,9 +22,19 @@ export function TimelineView(props: TimelineViewProps) {
   const setTimeRange = useSelectionStore((s) => s.setTimeRange)
 
   const bins = useMemo(() => props.bins ?? [], [props.bins])
+  const hourBounds = useMemo(() => {
+    const hours = bins.map((b) => b.hour)
+    const minHour = hours.length ? Math.min(...hours) : 0
+    const maxHour = hours.length ? Math.max(...hours) : 0
+    return { minHour, maxHour }
+  }, [bins])
+  const totalWindowHours = hourBounds.maxHour - hourBounds.minHour + 1
+  const brushedWindowHours = timeRange == null ? null : Math.abs(timeRange[1] - timeRange[0]) + 1
+  const windowSummary = timeRange == null ? `${totalWindowHours}h total` : `${brushedWindowHours}h selected`
+  const rangeSummary = timeRange == null ? 'full range' : `h${timeRange[0]}-h${timeRange[1]}`
 
   const [width, setWidth] = useState(900)
-  const height = 160
+  const height = 200
 
   useEffect(() => {
     if (!wrapRef.current) return
@@ -43,7 +53,7 @@ export function TimelineView(props: TimelineViewProps) {
     if (!svgEl) return
     if (props.isLoading) return
 
-    const margin = { top: 18, right: 10, bottom: 20, left: 40 }
+    const margin = { top: 18, right: 12, bottom: 28, left: 48 }
     const w = Math.max(520, width)
     const h = height
 
@@ -151,8 +161,10 @@ export function TimelineView(props: TimelineViewProps) {
         <div className="text-xs font-bold uppercase tracking-wider text-slate-800">
           Timeline
         </div>
-        <div className="flex items-center gap-3">
-          <div className="text-sm font-medium text-slate-500">Nov 9-11 2008 · 38h window</div>
+        <div className="flex items-center gap-4 text-sm font-medium text-slate-500">
+          <div>{windowSummary}</div>
+          <div className="text-slate-400">|</div>
+          <div>{rangeSummary}</div>
           <button
             className="text-sm font-medium text-slate-500 hover:text-slate-900"
             onClick={() => setTimeRange(null)}
@@ -162,11 +174,11 @@ export function TimelineView(props: TimelineViewProps) {
         </div>
       </div>
 
-      <div className="p-3">
+      <div className="px-3 pt-2 pb-3">
         {props.isLoading ? (
           <div className="text-slate-500 text-sm">Loading...</div>
         ) : (
-          <svg ref={svgRef} className="h-[120px] w-full" />
+          <svg ref={svgRef} className="h-[160px] w-full" />
         )}
       </div>
     </div>

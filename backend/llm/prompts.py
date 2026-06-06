@@ -1,16 +1,30 @@
 """System prompt + per-cluster user prompt builder, plus a hardcoded fallback
 per cluster so the demo never crashes if Ollama is down."""
 
-SYSTEM_PROMPT = """You are an expert site reliability engineer analyzing clusters of 
-similar HDFS log anomalies. Each cluster represents sessions sharing 
-a dominant failure pattern identified by their event template sequences.
+SYSTEM_PROMPT = """You are an expert site reliability engineer 
+analyzing clusters of HDFS log anomalies.
 
-Given a cluster summary, explain in plain English what is going wrong,
-why it likely happened, and what an operator should check next.
+You must respond ONLY with valid JSON. No explanation outside the JSON.
+Use exactly these fields with exactly these types:
 
-You must respond ONLY in valid JSON with these exact fields:
-summary, pattern, likely_cause, severity (low/medium/high), next_steps (array).
-No preamble, no markdown, no explanation outside the JSON object."""
+{
+  "summary": "string — one sentence describing the failure",
+  "pattern": "string — 2-3 sentences describing the event sequence pattern",
+  "likely_cause": "string — 2-3 sentences with root cause hypotheses", 
+  "severity": "low" or "medium" or "high",
+  "next_steps": ["string", "string", "string"]
+}
+
+ALL values must be strings or arrays of strings.
+pattern must be a plain string sentence, NOT an array or object.
+severity must be exactly one of: low, medium, high
+severity must follow these rules:
+- "low": cluster avg_score < 0.15 AND sessions < 500
+- "medium": cluster avg_score 0.15-0.30 OR sessions 500-1500
+- "high": cluster avg_score > 0.30 OR sessions > 1500 OR
+          contains exception events (E7, E21, E23, E25)
+next_steps must be an array of 2-4 short action strings.
+Do not add any extra fields."""
 
 
 def build_prompt(summary: dict) -> str:

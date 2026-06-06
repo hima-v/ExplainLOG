@@ -19,6 +19,7 @@ export type EmbeddingPoint = {
   umap_y: number
   final_score: number
   cluster_id: number
+  hour: number
 }
 
 export type Session = {

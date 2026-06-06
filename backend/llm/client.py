@@ -1,6 +1,7 @@
 """LLM client abstraction. One env var (LLM_BACKEND) picks Ollama (local, default)
 or Gemini (free-tier fallback). Both expose the same async token generator so the
 SSE route doesn't care which one is live."""
+
 import json
 from typing import AsyncGenerator
 
@@ -13,15 +14,27 @@ from llm import prompts
 async def stream_explanation(summary: dict) -> AsyncGenerator[str, None]:
     """Yields text chunks as the model produces them. If the backend is
     unreachable we yield the fallback JSON as a single chunk instead."""
+    print(f"[LLM] starting explanation for cluster {summary.get('cluster_id')}")
+    print(f"[LLM] backend: {config.LLM_BACKEND}")
+    print(f"[LLM] ollama host: {config.OLLAMA_HOST}")
+    print(f"[LLM] model: {config.OLLAMA_MODEL}")
     try:
         if config.LLM_BACKEND == "gemini":
             async for chunk in _stream_gemini(summary):
+                print(f"[LLM] gemini chunk: {chunk[:50]}")
                 yield chunk
         else:
+            full_response = ""
             async for chunk in _stream_ollama(summary):
+                full_response += chunk
+                print(f"[LLM] ollama chunk length so far: {len(full_response)}")
                 yield chunk
-    except (httpx.HTTPError, httpx.ConnectError, OSError):
-        # demo must never crash — hand back the precomputed fallback
+            print(f"[LLM] ollama complete response: {full_response[:200]}")
+    except Exception as e:
+        import traceback
+
+        print(f"[LLM ERROR] {type(e).__name__}: {e}")
+        traceback.print_exc()
         yield json.dumps(prompts.fallback(summary))
 
 
@@ -57,8 +70,13 @@ async def _stream_gemini(summary: dict) -> AsyncGenerator[str, None]:
     )
     payload = {
         "systemInstruction": {"parts": [{"text": prompts.SYSTEM_PROMPT}]},
-        "contents": [{"role": "user", "parts": [{"text": prompts.build_prompt(summary)}]}],
-        "generationConfig": {"responseMimeType": "application/json", "temperature": 0.2},
+        "contents": [
+            {"role": "user", "parts": [{"text": prompts.build_prompt(summary)}]}
+        ],
+        "generationConfig": {
+            "responseMimeType": "application/json",
+            "temperature": 0.2,
+        },
     }
     async with httpx.AsyncClient(timeout=120.0) as client:
         async with client.stream("POST", url, json=payload) as resp:
@@ -66,7 +84,7 @@ async def _stream_gemini(summary: dict) -> AsyncGenerator[str, None]:
             async for line in resp.aiter_lines():
                 if not line.startswith("data:"):
                     continue
-                body = line[len("data:"):].strip()
+                body = line[len("data:") :].strip()
                 if not body or body == "[DONE]":
                     continue
                 obj = json.loads(body)

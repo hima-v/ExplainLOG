@@ -121,3 +121,24 @@ export async function fetchExplanation(
   })
 }
 
+export async function submitExplanationFeedback(
+  clusterId: number,
+  label: 'confirm' | 'reject',
+  note = ''
+): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE}/feedback`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        cluster_id: clusterId,
+        label,
+        note,
+      }),
+    })
+    return res.ok
+  } catch {
+    return false
+  }
+}
+

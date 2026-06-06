@@ -15,8 +15,19 @@ async def get_embeddings():
     con = get_db()
     rows = con.execute(
         """
-        SELECT c.block_id, c.umap_x, c.umap_y, c.final_score, c.cluster_id
+        SELECT
+            c.block_id,
+            c.umap_x,
+            c.umap_y,
+            sc.final_score,
+            c.cluster_id,
+            CAST(
+                (RANK() OVER (ORDER BY s.Latency) * 37.0) / COUNT(*) OVER ()
+                AS INTEGER
+            ) as hour
         FROM clusters c
+        JOIN scored sc ON c.block_id = sc.block_id
+        JOIN sessions s ON c.block_id = s.block_id
         """
     ).fetchall()
     cluster_map = get_cluster_map()
@@ -27,6 +38,7 @@ async def get_embeddings():
             umap_y=float(r[2]),
             final_score=float(r[3]),
             cluster_id=cluster_map.get(int(r[4]), -1),
+            hour=int(r[5]),
         )
         for r in rows
     ]

@@ -17,6 +17,7 @@ class EmbeddingPoint(BaseModel):
     umap_y: float
     final_score: float
     cluster_id: int
+    hour: int
 
 
 class TopEvent(BaseModel):

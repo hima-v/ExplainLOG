@@ -1,9 +1,10 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { useQuery } from '@tanstack/react-query'
+import * as d3 from 'd3'
 
-import { fetchSessions } from '../api/client'
-import type { Cluster, Session } from '../types'
+import { fetchExplanation, fetchSessions, submitExplanationFeedback } from '../api/client'
+import type { Cluster, ClusterExplanation, Session } from '../types'
 import { useSelectionStore } from '../store/selection'
 
 type DetailPaneProps = {
@@ -31,23 +32,85 @@ const getChipStyle = (eventId: string) => {
 }
 
 function MiniBarChart(props: { items: { label: string; value: number }[] }) {
-  const max = Math.max(1, ...props.items.map((x) => x.value))
+  const svgRef = useRef<SVGSVGElement | null>(null)
+
+  useEffect(() => {
+    const svgEl = svgRef.current
+    if (!svgEl) return
+
+    const items = props.items ?? []
+    const W = 380
+    const H = Math.max(120, items.length * 24 + 44)
+    const margin = { top: 10, right: 60, bottom: 28, left: 52 }
+    const innerW = W - margin.left - margin.right
+    const innerH = H - margin.top - margin.bottom
+
+    const maxCount = Math.max(1, ...items.map((x) => x.value))
+    const x = d3.scaleLinear().domain([0, maxCount]).range([0, innerW])
+    const y = d3
+      .scaleBand<string>()
+      .domain(items.map((d) => d.label))
+      .range([0, innerH])
+      .padding(0.28)
+
+    const root = d3.select(svgEl)
+    root.selectAll('*').remove()
+    root.attr('viewBox', `0 0 ${W} ${H}`)
+
+    const g = root.append('g').attr('transform', `translate(${margin.left},${margin.top})`)
+
+    g.selectAll('rect')
+      .data(items)
+      .join('rect')
+      .attr('x', 0)
+      .attr('y', (d) => y(d.label) ?? 0)
+      .attr('width', (d) => x(d.value))
+      .attr('height', y.bandwidth())
+      .attr('rx', 3)
+      .attr('fill', '#60a5fa')
+
+    g.selectAll('text.value')
+      .data(items)
+      .join('text')
+      .attr('class', 'value')
+      .attr('x', (d) => x(d.value) + 5)
+      .attr('y', (d) => (y(d.label) ?? 0) + y.bandwidth() / 2 + 4)
+      .attr('text-anchor', 'start')
+      .attr('fontSize', 12)
+      .attr('font-family', 'Inter, system-ui, sans-serif')
+      .attr('fill', '#1e293b')
+      .text((d) => String(d.value))
+
+    const yAxis = d3.axisLeft(y).tickSize(0)
+    g.append('g')
+      .call(yAxis)
+      .call((sel) => sel.select('.domain').attr('stroke', '#e2e8f0'))
+      .call((sel) =>
+        sel
+          .selectAll('text')
+          .attr('fill', '#475569')
+          .attr('font-size', 12)
+          .attr('font-weight', 700)
+          .attr('font-family', 'Inter, system-ui, sans-serif')
+      )
+
+    const xAxis = d3.axisBottom(x).ticks(3).tickSizeOuter(0)
+    g.append('g')
+      .attr('transform', `translate(0,${innerH})`)
+      .call(xAxis)
+      .call((sel) => sel.selectAll('path,line').attr('stroke', '#e2e8f0'))
+      .call((sel) =>
+        sel
+          .selectAll('text')
+          .attr('fill', '#475569')
+          .attr('font-size', 10)
+          .attr('font-family', 'Inter, system-ui, sans-serif')
+      )
+  }, [props.items])
+
   return (
     <div className="p-3 pr-4 min-h-0 overflow-auto">
-      <div className="space-y-2">
-        {props.items.map((x) => (
-          <div key={x.label} className="grid grid-cols-[44px_1fr_64px] gap-4 items-center">
-            <div className="text-xs font-bold text-slate-800 tabular-nums">{x.label}</div>
-            <div className="h-2 rounded bg-slate-100 overflow-hidden border border-slate-300">
-              <div
-                className="h-full bg-blue-400"
-                style={{ width: `${Math.round((x.value / max) * 100)}%` }}
-              />
-            </div>
-            <div className="text-sm font-medium text-slate-500 tabular-nums text-right">{x.value}</div>
-          </div>
-        ))}
-      </div>
+      <svg ref={svgRef} className="w-full block" />
     </div>
   )
 }
@@ -85,10 +148,10 @@ function ScoreHistogram({
   const maxNormal = Math.max(1, ...NORMAL_COUNTS)
   const maxCluster = Math.max(1, ...clusterCounts)
 
-  const W = 340
+  const W = 360
   const H = 160
   // left margin bigger to fit y-axis labels
-  const margin = { top: 20, right: 10, bottom: 36, left: 42 }
+  const margin = { top: 20, right: 20, bottom: 36, left: 42 }
   const innerW = W - margin.left - margin.right
   const innerH = H - margin.top - margin.bottom
   const barW = innerW / BINS.length
@@ -139,8 +202,8 @@ function ScoreHistogram({
             y={y0 - scaleNormal(t.val) + 4}
             textAnchor="end"
             fontSize="10"
-            fill="#94a3b8"
-            fontFamily="Inter, ui-sans-serif, system-ui"
+            fill="#475569"
+            fontFamily="Inter, system-ui, sans-serif"
           >
             {t.label}
           </text>
@@ -152,8 +215,8 @@ function ScoreHistogram({
           y={margin.top + innerH / 2}
           textAnchor="middle"
           fontSize="10"
-          fill="#94a3b8"
-          fontFamily="Inter, ui-sans-serif, system-ui"
+          fill="#64748b"
+          fontFamily="Inter, system-ui, sans-serif"
           transform={`rotate(-90, 10, ${margin.top + innerH / 2})`}
         >
           Sessions
@@ -201,8 +264,8 @@ function ScoreHistogram({
                   y={y0 + 16}
                   textAnchor="middle"
                   fontSize="10"
-                  fill="#64748b"
-                  fontFamily="Inter, ui-sans-serif, system-ui"
+                  fill="#475569"
+                  fontFamily="Inter, system-ui, sans-serif"
                 >
                   {BIN_LABELS[i]}
                 </text>
@@ -217,19 +280,33 @@ function ScoreHistogram({
           y={H - 2}
           textAnchor="middle"
           fontSize="10"
-          fill="#94a3b8"
-          fontFamily="Inter, ui-sans-serif, system-ui"
+          fill="#64748b"
+          fontFamily="Inter, system-ui, sans-serif"
         >
           Anomaly Score
         </text>
 
         {/* legend — top right */}
         <rect x={W - 120} y={4} width={10} height={10} fill="#60a5fa" opacity={0.75} rx={1} />
-        <text x={W - 107} y={13} fontSize="10" fill="#64748b" fontFamily="Inter, ui-sans-serif, system-ui">
+        <text
+          x={W - 107}
+          y={13}
+          fontSize="10"
+          fill="#1e293b"
+          fontWeight={600}
+          fontFamily="Inter, system-ui, sans-serif"
+        >
           Normal
         </text>
         <rect x={W - 60} y={4} width={10} height={10} fill="#f87171" opacity={0.9} rx={1} />
-        <text x={W - 47} y={13} fontSize="10" fill="#64748b" fontFamily="Inter, ui-sans-serif, system-ui">
+        <text
+          x={W - 47}
+          y={13}
+          fontSize="10"
+          fill="#1e293b"
+          fontWeight={600}
+          fontFamily="Inter, system-ui, sans-serif"
+        >
           Cluster {clusterId}
         </text>
       </svg>
@@ -380,13 +457,13 @@ function AggregateCharts(props: { cluster: Cluster | null; sessions: Session[] }
   return (
     <div className="min-h-0 h-full grid grid-cols-2 gap-2">
       <div className="min-h-0 bg-white border border-slate-200 rounded-lg overflow-hidden">
-        <div className="text-slate-400 text-xs uppercase p-3 border-b border-slate-200">
+        <div className="text-slate-600 text-xs uppercase p-3 border-b border-slate-200">
           Top event templates
         </div>
         <MiniBarChart items={topEvents} />
       </div>
       <div className="min-h-0 bg-white border border-slate-200 rounded-lg overflow-hidden">
-        <div className="text-slate-400 text-xs uppercase p-3 border-b border-slate-200">
+        <div className="text-slate-600 text-xs uppercase p-3 border-b border-slate-200">
           Anomaly score distribution
         </div>
         <ScoreHistogram
@@ -394,6 +471,113 @@ function AggregateCharts(props: { cluster: Cluster | null; sessions: Session[] }
           size={props.cluster?.size ?? 100}
           clusterId={selectedCluster ?? 0}
         />
+      </div>
+    </div>
+  )
+}
+
+function ExplainPanel({
+  explanation,
+  isLoading,
+  clusterId,
+}: {
+  explanation: ClusterExplanation | null
+  isLoading: boolean
+  clusterId: number | null
+}) {
+  const [feedbackState, setFeedbackState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+
+  const onFeedback = async (label: 'confirm' | 'reject') => {
+    if (clusterId == null || feedbackState === 'saving') return
+    setFeedbackState('saving')
+    const ok = await submitExplanationFeedback(clusterId, label)
+    setFeedbackState(ok ? 'saved' : 'error')
+  }
+
+  if (clusterId == null)
+    return (
+      <div className="flex items-center justify-center h-full">
+        <p className="text-slate-400 text-sm italic">Select a cluster to see AI explanation</p>
+      </div>
+    )
+
+  if (isLoading)
+    return (
+      <div className="flex items-center justify-center h-full">
+        <p className="text-slate-400 text-sm">Generating explanation...</p>
+      </div>
+    )
+
+  if (!explanation)
+    return (
+      <div className="flex items-center justify-center h-full">
+        <p className="text-slate-400 text-sm italic">No explanation available</p>
+      </div>
+    )
+
+  const severityStyle = {
+    high: 'bg-red-100 text-red-700 border border-red-200',
+    medium: 'bg-yellow-100 text-yellow-700 border border-yellow-200',
+    low: 'bg-green-100 text-green-700 border border-green-200',
+  }[explanation.severity] ?? 'bg-slate-100 text-slate-600'
+
+  return (
+    <div className="p-3 space-y-3 overflow-y-auto h-full">
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+          LLM Explain - cluster {clusterId}
+        </span>
+        <span className={`text-xs px-2 py-0.5 rounded font-medium ${severityStyle}`}>{explanation.severity}</span>
+      </div>
+
+      <p className="text-slate-900 text-sm font-medium leading-snug">{explanation.summary}</p>
+
+      <div>
+        <span className="text-slate-800 font-semibold text-sm">Pattern: </span>
+        <span className="text-slate-700 text-sm leading-relaxed">{explanation.pattern}</span>
+      </div>
+
+      <div>
+        <span className="text-slate-800 font-semibold text-sm">Likely cause: </span>
+        <span className="text-slate-700 text-sm leading-relaxed">{explanation.likely_cause}</span>
+      </div>
+
+      <div>
+        <p className="text-xs font-bold text-slate-700 mb-1">Next steps</p>
+        <ul className="space-y-1">
+          {explanation.next_steps.map((step, i) => (
+            <li key={i} className="text-slate-700 text-sm flex gap-2">
+              <span className="text-slate-400 font-mono">{i + 1}.</span>
+              {step}
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <div className="sticky bottom-0 flex gap-2 pt-2 pb-1 bg-white">
+        <button
+          className="px-3 py-1 text-xs bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded text-slate-700 transition-colors disabled:opacity-60"
+          onClick={() => onFeedback('confirm')}
+          disabled={feedbackState === 'saving'}
+        >
+          Confirm
+        </button>
+        <button
+          className="px-3 py-1 text-xs bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded text-slate-700 transition-colors disabled:opacity-60"
+          onClick={() => onFeedback('reject')}
+          disabled={feedbackState === 'saving'}
+        >
+          Reject
+        </button>
+        {feedbackState === 'saving' ? (
+          <span className="text-xs text-slate-500 self-center">Saving...</span>
+        ) : null}
+        {feedbackState === 'saved' ? (
+          <span className="text-xs text-green-700 self-center">Saved</span>
+        ) : null}
+        {feedbackState === 'error' ? (
+          <span className="text-xs text-red-700 self-center">Failed to save</span>
+        ) : null}
       </div>
     </div>
   )
@@ -409,18 +593,26 @@ export function DetailPane(props: DetailPaneProps) {
     enabled: selectedCluster != null,
     staleTime: 30_000,
   })
+  const explainQ = useQuery({
+    queryKey: ['explain', selectedCluster],
+    queryFn: () =>
+      selectedCluster == null ? Promise.resolve(null) : fetchExplanation(selectedCluster),
+    enabled: selectedCluster != null,
+    staleTime: 60_000,
+  })
 
   const sessions = (sessionsQ.data ?? []) as Session[]
+  const explanation = explainQ.data ?? null
 
   return (
-    <div className="h-full min-h-0 flex flex-col overflow-hidden">
+    <div className="h-full min-h-0 flex flex-col overflow-y-auto">
       <div className="flex-shrink-0">
         {panelShell('CLUSTER', <ClusterSummaryCard cluster={c} />)}
       </div>
 
-      <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+      <div className="flex-1 min-h-[220px] overflow-hidden flex flex-col">
         <section className="min-h-0 h-full overflow-hidden flex flex-col">
-          <div className="text-slate-400 text-xs uppercase p-3 border-b border-slate-200">
+          <div className="text-slate-600 text-xs uppercase p-3 border-b border-slate-200">
             SESSIONS
           </div>
           <div className="flex-1 overflow-y-auto min-h-0">
@@ -433,9 +625,20 @@ export function DetailPane(props: DetailPaneProps) {
       </div>
 
       <div className="flex-shrink-0 border-t border-slate-100 p-4">
-        <div className="text-slate-400 text-xs uppercase pb-3">AGGREGATES</div>
+        <div className="text-slate-600 text-xs uppercase pb-3">AGGREGATES</div>
         <div className="h-64 min-h-0 overflow-hidden">
           <AggregateCharts cluster={c} sessions={sessions} />
+        </div>
+      </div>
+
+      <div className="flex-shrink-0 border-t border-slate-100">
+        <div className="text-slate-600 text-xs uppercase p-3 pb-0">LLM EXPLAIN</div>
+        <div className="h-44 overflow-hidden">
+          <ExplainPanel
+            explanation={explanation}
+            isLoading={explainQ.isLoading}
+            clusterId={selectedCluster}
+          />
         </div>
       </div>
     </div>

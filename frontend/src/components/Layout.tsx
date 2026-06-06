@@ -19,7 +19,7 @@ export function Layout(props: LayoutProps) {
 
       <div className="flex-1 overflow-hidden flex gap-4 min-h-0 pt-4">
         <div className="flex flex-col h-full w-[40%] bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden min-w-0">
-          <div className="flex-shrink-0 h-[180px] p-3 border-b border-slate-100 overflow-hidden">
+          <div className="flex-shrink-0 h-[240px] p-3 border-b border-slate-100 overflow-hidden">
             {props.timeline}
           </div>
           <div className="flex-1 min-h-0 p-3 overflow-hidden">

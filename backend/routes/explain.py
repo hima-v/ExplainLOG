@@ -37,6 +37,7 @@ async def explain(cluster_id: int = Path(ge=-1)):
     key = cache.cache_key(summary)
 
     async def gen():
+        print(f"[SSE] starting stream for cluster {cluster_id}")
         cached = cache.get(key)
         if cached is not None:
             yield _sse(cached)  # whole thing in one shot — already validated JSON
@@ -45,13 +46,35 @@ async def explain(cluster_id: int = Path(ge=-1)):
         buf = []
         async for chunk in client.stream_explanation(summary):
             buf.append(chunk)
+            full = "".join(buf)
+            print(f"[SSE] sending delta, total length: {len(full)}")
             yield _sse(json.dumps({"delta": chunk}))
 
         full = "".join(buf)
+        print(f"[SSE] stream complete, full response: {full[:300]}")
+
         try:
-            json.loads(full)  # only cache if it parsed cleanly
+            parsed = json.loads(full)  # only cache if it parsed cleanly
+
+            # coerce pattern to string if model returned wrong type
+            if isinstance(parsed.get("pattern"), list):
+                parsed["pattern"] = " ".join(
+                    str(list(d.values())[0]) for d in parsed["pattern"] 
+                    if isinstance(d, dict)
+                )
+            elif isinstance(parsed.get("pattern"), dict):
+                parsed["pattern"] = str(parsed["pattern"])
+
+            # coerce next_steps to list if model returned a string
+            if isinstance(parsed.get("next_steps"), str):
+                parsed["next_steps"] = [parsed["next_steps"]]
+
+            full = json.dumps(parsed)
+            print(f"[SSE] parsed successfully, keys: {list(parsed.keys())}")
             cache.put(key, full)
-        except json.JSONDecodeError:
+        except json.JSONDecodeError as e:
+            print(f"[SSE] JSON parse failed: {e}")
+            print(f"[SSE] raw response was: {full}")
             pass
         yield _sse(full)  # final consolidated payload the frontend parses
 

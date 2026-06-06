@@ -15,21 +15,25 @@ function colorForCluster(clusterId: number): [number, number, number, number] {
     case -1:
       return [156, 163, 175, 40]
     case 0:
-      return [31, 119, 180, 220] // #1f77b4
+      return [0, 98, 155, 220] // #00629b
     case 1:
-      return [214, 39, 40, 220] // #d62728
+      return [190, 56, 27, 220] // #be381b
     case 2:
-      return [44, 160, 44, 220] // #2ca02c
+      return [0, 136, 93, 220] // #00885d
     case 3:
-      return [255, 127, 14, 220] // #ff7f0e
+      return [242, 142, 43, 220] // #f28e2b
     case 4:
-      return [148, 103, 189, 220] // #9467bd
+      return [118, 78, 159, 220] // #764e9f
     case 5:
-      return [140, 86, 75, 220] // #8c564b
+      return [89, 89, 89, 220] // #595959
     case 6:
-      return [227, 119, 194, 220] // #e377c2
+      return [214, 90, 164, 220] // #d65aa4
     case 7:
-      return [127, 127, 127, 220] // #7f7f7f
+      return [82, 138, 35, 220] // #528a23
+    case 8:
+      return [76, 114, 176, 220] // #4c72b0
+    case 14:
+      return [221, 132, 82, 220] // #dd8452
     default:
       return [156, 163, 175, 180]
   }
@@ -72,12 +76,6 @@ export function ScatterView(props: ScatterViewProps) {
     () => points.filter((p) => p.final_score >= scoreThreshold),
     [points, scoreThreshold]
   )
-
-  const withHour = useMemo(() => {
-    // mock linkage: assign an hour bucket so time brushing can dim points —
-    // real backend will ship timestamps later, this is demo glue
-    return filtered.map((p, i) => ({ ...p, _hour: i % 38 }))
-  }, [filtered])
 
   const bounds = useMemo(() => {
     const xs = points.map((p) => p.umap_x)
@@ -133,58 +131,52 @@ export function ScatterView(props: ScatterViewProps) {
     () => [
       new ScatterplotLayer<any>({
         id: 'umap-points',
-        data: withHour,
+        data: filtered,
         getPosition: (d) => [d.umap_x, d.umap_y],
         getRadius: (d) => (d.cluster_id === hoveredCluster ? 15 : 8),
         radiusUnits: 'pixels',
         radiusMinPixels: 4,
         radiusMaxPixels: 20,
         getFillColor: (d) => {
-          if (d.cluster_id === -1) return [156, 163, 175, 40]
-          const base = colorForCluster(d.cluster_id)
           const inRange =
-            timeRange == null ||
-            (d._hour >= timeRange[0] && d._hour <= timeRange[1])
-          const alpha = inRange ? base[3] : 30
-          return [base[0], base[1], base[2], alpha]
+            timeRange === null ||
+            (d.hour >= timeRange[0] && d.hour <= timeRange[1])
+          if (!inRange) return [200, 200, 200, 30]
+          if (d.cluster_id === -1) return [156, 163, 175, 40]
+          return colorForCluster(d.cluster_id)
         },
         pickable: true,
         onClick: handleClick,
         onHover: handleHover,
         updateTriggers: {
-          getFillColor: [selectedCluster, timeRange],
+          getFillColor: [selectedCluster, hoveredCluster, timeRange],
           getRadius: [hoveredCluster],
         },
       }),
     ],
-    [handleClick, handleHover, hoveredCluster, selectedCluster, timeRange, withHour]
+    [filtered, handleClick, handleHover, hoveredCluster, selectedCluster, timeRange]
   )
 
   const legendItems = (props.clusters ?? []).filter((c) => c.cluster_id !== -1)
+  const selectedLabel = selectedCluster == null ? 'no cluster selected' : `selected ${selectedCluster}`
+  const brushLabel =
+    timeRange == null
+      ? 'full window'
+      : `h${timeRange[0]}-${timeRange[1]} (${Math.abs(timeRange[1] - timeRange[0]) + 1}h)`
 
   return (
     <div className="h-full w-full overflow-hidden flex flex-col">
-      <div className="flex-shrink-0 flex items-center justify-between px-0 py-0 mb-2">
-        <div className="text-xs font-bold uppercase tracking-wider text-slate-800">
+      <div className="flex-shrink-0 flex items-center justify-between px-1 py-1 mb-2 border-b border-slate-200">
+        <div className="text-xs font-bold uppercase tracking-wider text-slate-800 leading-none">
           UMAP scatter
         </div>
-        <div className="text-xs text-slate-500">
-          threshold ≥ {scoreThreshold.toFixed(2)} •{' '}
-          {selectedCluster == null ? 'no cluster selected' : `selected ${selectedCluster}`}
+        <div className="text-xs text-slate-500 leading-none">
+          {brushLabel} • {selectedLabel}
         </div>
       </div>
 
-      <div className="flex items-center gap-4 px-3 pb-2 text-xs text-slate-500">
-        <span>Detector blend:</span>
-        <input type="range" min={0} max={1} step={0.1} defaultValue={0.9} className="w-24 h-1" />
-        <span>LSTM 90%</span>
-        <span className="ml-4">Threshold:</span>
-        <input type="range" min={0} max={1} step={0.05} defaultValue={0.1} className="w-24 h-1" />
-        <span>0.10</span>
-      </div>
-
-      <div className="flex-1 flex flex-row w-full overflow-hidden p-4 gap-4 min-h-0">
-        <div className="w-56 flex-shrink-0 flex flex-col bg-white border border-slate-300 rounded-lg overflow-hidden shadow-sm min-h-0">
+      <div className="flex-1 flex flex-row w-full overflow-hidden p-4 gap-3 min-h-0">
+        <div className="w-44 flex-shrink-0 flex flex-col bg-white border border-slate-300 rounded-lg overflow-hidden shadow-sm min-h-0">
           <div className="flex-shrink-0 px-3 py-2 border-b border-slate-300">
             <div className="text-xs font-bold uppercase tracking-wider text-slate-800">
               Clusters
