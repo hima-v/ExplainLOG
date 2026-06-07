@@ -1,3 +1,15 @@
+"""
+Pre-caches LLM explanations for all 8 clusters before demo or grading.
+Run this once after the pipeline and before starting the backend.
+First-call latency is ~50s per cluster on CPU (~7 min total).
+After this, all explanations load in <100ms from disk cache.
+
+Usage:
+    python precache.py
+
+Requires: backend running at http://localhost:8000
+"""
+
 import urllib.request
 import time
 

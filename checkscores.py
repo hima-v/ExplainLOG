@@ -1,3 +1,13 @@
+"""
+Utility script to inspect anomaly score distributions from the pipeline output.
+Run this after the ML pipeline to verify detection results.
+
+Usage:
+    python check_scores.py
+
+Requires: data/processed/scored.parquet (produced by pipeline/run_all.py)
+"""
+
 import polars as pl
 import numpy as np
 from sklearn.metrics import precision_recall_fscore_support
