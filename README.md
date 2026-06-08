@@ -40,11 +40,11 @@ ExplainLOG/
 ## Dataset Setup
 
 ExplainLOG uses the **HDFS LogHub v1** dataset. The raw files are not 
-included in this repository due to size.
+included in this repository due to size. The author has allowed to use the dataset and its publicly available. The raw lines were converted into processed files by the author and we are using those files directly. https://people.iiis.tsinghua.edu.cn/~weixu/sospdata.html
 
-**Download from Zenodo:**
+**Download from Box Folder:**
 ```
-https://zenodo.org/records/8196385 → download HDFS_v1.zip
+https://ucdavis.box.com/s/61h8m8alh2pk4db89tiezhsqfl015l8g
 ```
 
 Extract and place these four files into `data/`:
