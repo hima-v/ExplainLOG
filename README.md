@@ -1,10 +1,25 @@
-# ExplainLOG: Visual Analytics for HDFS Log Anomaly Triage
+# ExplainLOG: Human-in-the-Loop Log Anomaly Triage
 
-![ExplainLOG dashboard](docs/screenshots/1794963891369_Screenshot%202026-06-05%20224418.png)
+**A visual analytics dashboard for debugging distributed system logs.** PyTorch · FastAPI · DuckDB · Ollama · React · D3.js · Deck.gl
 
-Anomaly detectors can tell an engineer *that* something broke. They rarely say *what kind* of failure it was or where to look next, so engineers end up grepping through raw logs. ExplainLOG closes that gap. It scans 575K Hadoop (HDFS) block sessions, flags the anomalous ones with an LSTM autoencoder, groups them into failure patterns, and explains each pattern in plain English with a locally hosted LLM. Four linked views let an operator go from overview to a single session without reading log lines.
+<p align="center">
+  <img src="docs/screenshots/1794963891369_Screenshot%202026-06-05%20224418.png" alt="ExplainLOG dashboard" width="720">
+</p>
 
-Built for ECS 273 (Visual Analytics) at UC Davis. **[Read the project report (PDF)](docs/explainlog-visual-analytics.pdf)**
+Anomaly detectors can tell an engineer *that* something broke. They rarely say *what kind* of failure it was or where to look next, so engineers end up grepping through raw logs. ExplainLOG closes that gap. It scans 11.2M Hadoop (HDFS) log lines, flags anomalous sessions with an LSTM autoencoder, groups them into 8 failure types, and explains each one in plain English with a locally hosted LLM. Engineers stay in the loop: they explore through four linked views and confirm or reject every explanation.
+
+Built for ECS 273 (Visual Analytics) at UC Davis, Apr to Jun 2026. **[Read the project report (PDF)](docs/explainlog-visual-analytics.pdf)**
+
+### At a glance
+
+| | |
+|---|---|
+| **Scale** | 11.2M log lines, 575,061 sessions, 12,149 flagged |
+| **Detection** | 0.71 F1 (LSTM autoencoder) vs. 0.09 (Isolation Forest) |
+| **Latency** | API responses under 100ms; cached LLM explanations 50s → under 100ms |
+| **Rendering** | 12,149 points at 60fps with WebGL |
+| **User study** | 17 of 20 ratings found explanations useful |
+| **Footprint** | Runs on a laptop (i5, 16 GB RAM, no GPU), no cloud dependencies |
 
 ## Results
 
@@ -13,54 +28,69 @@ Built for ECS 273 (Visual Analytics) at UC Davis. **[Read the project report (PD
 | Isolation Forest (baseline) | 0.046 | 0.740 | 0.087 |
 | **LSTM autoencoder** | **0.841** | **0.607** | **0.705** |
 
-- **Detection:** the LSTM autoencoder reaches F1 0.705 with 0.841 precision, about 8x the Isolation Forest baseline. HDFS failures show up in the *order* of events, not their counts, and a count-based model can't see that.
 - **Clustering:** 12,149 flagged sessions grouped into 8 distinct failure types (down from 235 noisy micro-clusters), silhouette score 0.258.
 - **Explanations:** in a 10-person study, 17 of 20 ratings confirmed the LLM explanations were useful. All 3 rejections pointed to the same gap (generic next steps for mixed clusters), which shows the feedback loop catching real weaknesses.
-- **Hardware:** everything runs on a consumer laptop (Intel i5, 16 GB RAM, no GPU) with no cloud dependencies.
 
-## Highlights
+## System Design and Architecture
 
-- **Baseline comparison.** The LSTM autoencoder learns normal event sequences and scores sessions by reconstruction error. An Isolation Forest on 29-dim event count vectors is kept as a baseline to show why sequence order matters.
-- **Failure pattern discovery.** UMAP projects flagged sessions to 2D and HDBSCAN clusters them without a preset k. Clusters are merged by their top-3 event signature into named failure groups, and true outliers stay in a noise group instead of being forced into a cluster.
-- **Fast by design.** The pipeline runs once and writes Parquet files. FastAPI reads them through DuckDB views, so no model inference happens during interaction and API responses stay under 100ms.
-- **Streaming LLM explanations.** Llama 3.1 8B (via Ollama) returns structured JSON (summary, pattern, likely cause, severity, next steps), streamed to the browser over Server-Sent Events. Running locally keeps infrastructure logs on-machine.
-- **Cold start from ~50s to under 100ms.** A SHA-256 disk cache keyed on each cluster's event signature and size bucket, plus a pre-cache script, makes every explanation instant during exploration.
-- **Swappable LLM backend.** One environment variable switches between Ollama and the Gemini API behind the same async streaming interface.
-- **WebGL rendering.** Deck.gl draws all 12,149 points at 60fps, where SVG starts to slow down past roughly 5K nodes.
-- **Human in the loop.** Linking and brushing across views, plus Confirm/Reject on each explanation. Feedback is logged to append-only JSONL that doubles as a labeled evaluation set.
+ExplainLOG separates **offline computation** from **online serving**, so nothing expensive runs while an engineer is clicking around.
+
+```
+OFFLINE  ·  runs once, ~20 min on CPU
+  HDFS logs (11.2M lines, 575K sessions)
+    → Load + validate      Polars, join and label checks
+    → Featurize            event sequences (len 50) + 29-dim count vectors
+    → Detect               LSTM autoencoder, Isolation Forest baseline  → 12,149 flagged
+    → Reduce + cluster     UMAP to 2D, HDBSCAN + signature merging      → 8 failure groups
+    → Write artifacts      Parquet + JSON
+                                   │
+ONLINE  ·  interactive, data queries under 100ms
+  FastAPI ── DuckDB views over Parquet (no inference on the request path)
+    ├─ REST   /clusters  /clusters/{id}/sessions  /embeddings  /timeline
+    ├─ SSE    /clusters/{id}/explain ── disk cache ──▶ Ollama | Gemini
+    └─ POST   /feedback ──▶ feedback.jsonl
+                                   │
+  React + TypeScript dashboard, one shared Zustand store
+    Timeline (D3) · Scatter (Deck.gl, WebGL) · Session table · Explain panel
+```
+
+### Key design decisions
+
+- **Precompute, then serve.** The ML pipeline writes Parquet artifacts once. FastAPI queries them through DuckDB views, so there's no model inference on the request path and API latency stays under 100ms no matter how big the dataset is.
+- **Cache the slow part.** A cold LLM call takes about 50s on CPU. Explanations are cached on disk, keyed by a SHA-256 fingerprint of each cluster's event signature and size bucket, so repeat requests return in under 100ms. A pre-cache script warms all 8 groups before a demo.
+- **Stream instead of block.** On a cache miss, tokens stream to the browser over Server-Sent Events, so the user sees progress right away. SSE was chosen over WebSockets because the data only flows one way.
+- **Swappable LLM backend.** Ollama (local, default) and Gemini (hosted fallback) sit behind one async streaming interface, picked by an environment variable. Local by default keeps infrastructure logs on the machine.
+- **Structured, validated output.** The model is constrained to JSON (summary, pattern, likely cause, severity, next steps), validated before caching, with a rule-based fallback if the model is unreachable.
+- **WebGL where the DOM breaks down.** SVG slows down past about 5K nodes, so the scatter plot uses Deck.gl to keep 12,149 points at 60fps.
+- **One shared state store.** Linking and brushing works through a single Zustand store, so one interaction updates every view at once.
+- **Human feedback as data.** Confirm/Reject is appended to a JSONL log that doubles as a labeled evaluation set. It already surfaced which clusters need better prompts.
+
+### Why an LSTM autoencoder
+
+HDFS failures show up in the *order* of events, not their counts. `E22 → E5 → E7` and `E22 → E5 → E26` have the same counts but end differently. The LSTM learns normal sequences and flags sessions it can't reconstruct. Isolation Forest only sees count vectors, which is why it flags almost half the dataset and gets 0.046 precision.
 
 ## Screenshots
 
 **Timeline + UMAP scatter.** Brushing a 16-hour window filters the scatter plot. Each dot is a flagged session, colored by failure cluster, with hover details.
 
-![Timeline and scatter](docs/screenshots/1794963891369_Screenshot%202026-06-05%20224019.png)
+<p align="center">
+  <img src="docs/screenshots/1794963891369_Screenshot%202026-06-05%20224019.png" alt="Timeline and scatter" width="420">
+</p>
 
 **Cluster detail + LLM explanation.** Top event templates, the cluster's score distribution against 558K normal sessions, and the explanation with severity and Confirm/Reject.
 
-![Cluster detail and LLM explanation](docs/screenshots/1794963891369_Screenshot%202026-06-05%20224039.png)
+<p align="center">
+  <img src="docs/screenshots/1794963891369_Screenshot%202026-06-05%20224039.png" alt="Cluster detail and LLM explanation" width="560">
+</p>
 
 **Spotting a burst.** Anomalies climb sharply in the last hours of the 38-hour trace. Brushing just that window narrows every other view to it.
 
-![Timeline brush on the anomaly spike](docs/screenshots/1794963906539_Screenshot%202026-06-05%20223716.png)
+<p align="center">
+  <img src="docs/screenshots/1794963906539_Screenshot%202026-06-05%20223716.png" alt="Timeline brush on the anomaly spike" width="520">
+</p>
 
-## How It Works
+## Failure Groups Found
 
-```
-HDFS LogHub: 11.2M log lines, 575,061 block sessions, 2.9% labeled anomalous
-   │
-   ├─ 1. Load + validate      Polars, join and label checks
-   ├─ 2. Featurize            event sequences (len 50) + 29-dim count vectors
-   ├─ 3. Detect               LSTM autoencoder (+ Isolation Forest baseline)
-   │                          → 12,149 sessions flagged
-   ├─ 4. Reduce               UMAP to 2D (74s on CPU)
-   ├─ 5. Cluster              HDBSCAN + signature merging → 8 failure groups
-   └─ 6. Summarize            top event templates per cluster
-            │
-            ▼
-   FastAPI + DuckDB  ──SSE──▶  React dashboard  ◀──▶  Ollama / Gemini
-```
-
-### Failure groups found
 
 | Cluster | Sessions | Dominant events | Failure type |
 |---|---|---|---|
