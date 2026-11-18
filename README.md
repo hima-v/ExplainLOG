@@ -8,7 +8,9 @@
 
 Anomaly detectors can tell an engineer *that* something broke. They rarely say *what kind* of failure it was or where to look next, so engineers end up grepping through raw logs. ExplainLOG closes that gap. It scans 11.2M Hadoop (HDFS) log lines, flags anomalous sessions with an LSTM autoencoder, groups them into 8 failure types, and explains each one in plain English with a locally hosted LLM. Engineers stay in the loop: they explore through four linked views and confirm or reject every explanation.
 
-Built for ECS 273 (Visual Analytics) at UC Davis, Apr to Jun 2026. **[Read the project report (PDF)](docs/explainlog-visual-analytics.pdf)**
+Built for ECS 273 (Visual Analytics) at UC Davis, Apr to Jun 2026.
+
+**[▶ Watch the demo](https://www.youtube.com/watch?v=kryHn7lxNOA)** · **[Read the project report (PDF)](docs/explainlog-visual-analytics.pdf)**
 
 ### At a glance
 
@@ -68,6 +70,12 @@ ONLINE  ·  interactive, data queries under 100ms
 ### Why an LSTM autoencoder
 
 HDFS failures show up in the *order* of events, not their counts. `E22 → E5 → E7` and `E22 → E5 → E26` have the same counts but end differently. The LSTM learns normal sequences and flags sessions it can't reconstruct. Isolation Forest only sees count vectors, which is why it flags almost half the dataset and gets 0.046 precision.
+
+## Demo
+
+<p align="center">
+  <a href="https://www.youtube.com/watch?v=kryHn7lxNOA"><img src="https://img.youtube.com/vi/kryHn7lxNOA/hqdefault.jpg" alt="ExplainLOG demo video" width="480"></a>
+</p>
 
 ## Screenshots
 
